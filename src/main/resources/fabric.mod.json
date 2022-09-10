@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "tcboattweakerultra",
+  "version": "${version}",
+  "name": "TCBoatTweakerUltra",
+  "description": "",
+  "authors": ["Taeko"],
+  "contact": {},
+  "license": "MIT",
+  "icon": "tcicon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "ch.taeko.TCBoatTweakerUltra.client.TCBoatTweakerClient"
+    ],
+    "main": [
+      "ch.taeko.TCBoatTweakerUltra.TCBoatTweaker"
+    ]
+  },
+  "mixins": [
+    "TCBoatTweaker.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.9",
+    "fabric": "*",
+    "minecraft": "1.19.2"
+  }
+}
