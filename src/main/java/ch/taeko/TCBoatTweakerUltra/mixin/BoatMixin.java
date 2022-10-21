@@ -65,6 +65,8 @@ public abstract class BoatMixin extends Entity {
 
     @Shadow public abstract Direction getMovementDirection();
 
+    @Shadow private double boatYaw;
+
     public BoatMixin(EntityType<?> type, World world) {
 	   super(type, world);
     }
@@ -147,11 +149,13 @@ public abstract class BoatMixin extends Entity {
 		  float f = 0.0F;
 
 		  if (this.pressingLeft && !isStopped) {
-			 --this.yawVelocity;
+			 //--this.yawVelocity;
+			 this.setYaw(this.getYaw() - 3);
 		  }
 
 		  if (this.pressingRight && !isStopped) {
-			 ++this.yawVelocity;
+			 //++this.yawVelocity;
+			 this.setYaw(this.getYaw() + 3);
 		  }
 
 		  if (this.pressingRight != this.pressingLeft && !this.pressingForward && !this.pressingBack) {
@@ -164,7 +168,7 @@ public abstract class BoatMixin extends Entity {
 		  }
 
 		  if (this.pressingBack) {
-			 if (isStopped || getMovementDirection() != getPrimaryPassenger().getHorizontalFacing()) {
+			 if (isStopped) {
 				f = 0F;
 				this.setVelocity(Vec3d.ZERO);
 			 } else {
