@@ -1,56 +1,43 @@
 package ch.taeko.TCBoatTweakerUltra;
 
-// import net.minecraft.util.math.BlockPos;
-// import net.minecraft.util.math.Vec3d;
-
-// import java.util.List;
-
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 
 public class Utilities {
 
-    public static boolean surroundingBlocksAreSlippery(BlockPos pos, World world) {
-	   if (world.getBlockState(pos.north()).getBlock().getSlipperiness() > 0.8) {
-		  return true;
-	   } else if (world.getBlockState(pos.south()).getBlock().getSlipperiness() > 0.8) {
-		  return true;
-	   } else if (world.getBlockState(pos.east()).getBlock().getSlipperiness() > 0.8) {
-		  return true;
-	   } else return world.getBlockState(pos.west()).getBlock().getSlipperiness() > 0.8;
+    public enum Gears {
+	   FORWARD, REVERSE, I, II, III, IV, V, VI
     }
 
-    /*
+    public static Gears currentGear = Gears.FORWARD;
+    public static double currentGearNumber = 1;
+
     public static double convertToMS(double v) {
 	   return 20.71 * v;
     }
 
-    public static double vectorToLinear(Vec3d vector) {
-	   return Math.sqrt(Math.pow(vector.x, 2) + Math.pow(vector.y, 2) + Math.pow(vector.z, 2));
+    public static double vectorTo1D(Vec3d vector) {
+	   return Math.sqrt(Math.pow(vector.x, 2) + Math.pow(vector.z, 2));
     }
 
-    public static BlockPos determineClosest(List<BlockStateHeight> l, BlockPos ps) {
-
-	   List<Double> distances = null;
-	   BlockPos closest = null;
-
-	   for (BlockStateHeight p : l) {
-		  Vec3d v = new Vec3d(p.blockPos.getX(), p.blockPos.getY(), p.blockPos.getZ());
-		  distances.add(v.distanceTo(new Vec3d(
-				ps.getX(), ps.getY(), ps.getZ()
-		  )));
-	   }
-
-	   double cdist = distances.get(0);
-
-	   for (int i = 0; i <= distances.size(); i++) {
-		  if (distances.get(i) < cdist) {
-			 cdist = distances.get(i);
-			 closest = l.get(i).blockPos;
-		  }
-	   }
-	   return closest != null ? closest : l.get(0).blockPos;
+    public static double getYawRotation(Vec3d speed) {
+	   double x = vectorTo1D(speed);
+	   return -0.1 * x + 6;
     }
-    */
 
+    public static Vec3d brakingSpeed(Vec3d speed, double b) {
+
+	   double netV = Math.sqrt(Math.pow(speed.getY(), 2) + Math.pow(speed.getZ(), 2));
+
+	   double angleNS = Math.acos(speed.getZ() / netV);
+	   double angleEW = Math.acos(speed.getX() / netV);
+
+	   netV = netV > 0 ? netV + b : netV - b;
+
+	   double newX = Math.cos(angleEW) * netV;
+	   double newZ = Math.cos(angleNS) * netV;
+
+	   return speed.add(newX, 0.0F, newZ);
+
+    }
 }
