@@ -7,7 +7,7 @@
   "authors": ["Taeko"],
   "contact": {},
   "license": "MIT",
-  "icon": "tcicon.png",
+  "icon": "assets/tcicon.png",
   "environment": "*",
   "entrypoints": {
     "client": [

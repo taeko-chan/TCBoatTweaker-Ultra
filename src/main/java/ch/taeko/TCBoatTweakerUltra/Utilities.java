@@ -1,6 +1,5 @@
 package ch.taeko.TCBoatTweakerUltra;
 
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
 public class Utilities {
@@ -12,32 +11,27 @@ public class Utilities {
     public static Gears currentGear = Gears.FORWARD;
     public static double currentGearNumber = 1;
 
-    public static double convertToMS(double v) {
-	   return 20.71 * v;
+    public static double toSi(double v) {
+	   return 20 * v;
+    }
+    public static Vec3d toSiV(Vec3d v) {
+	   return new Vec3d(v.getX() * 20, v.getY() * 20, v.getZ() * 20);
+    }
+    public static double toMc(double v) {
+	   return v / 20;
+    }
+    public static float getTorqueAtRpm(float rpm) {
+	   return (float) (-(210/Math.pow(3500, 4)) * Math.pow(rpm-3500, 4) + 210);
     }
 
-    public static double vectorTo1D(Vec3d vector) {
-	   return Math.sqrt(Math.pow(vector.x, 2) + Math.pow(vector.z, 2));
+    public static Vec3d toMcV(Vec3d v) {
+	   return new Vec3d(v.getX() / 20, v.getY() / 20, v.getZ() / 20);
     }
+
+    public static double linV(Vec3d vector) { return Math.sqrt(Math.pow(vector.x, 2) + Math.pow(vector.z, 2)); }
 
     public static double getYawRotation(Vec3d speed) {
-	   double x = vectorTo1D(speed);
+	   double x = linV(speed);
 	   return -0.1 * x + 6;
-    }
-
-    public static Vec3d brakingSpeed(Vec3d speed, double b) {
-
-	   double netV = Math.sqrt(Math.pow(speed.getY(), 2) + Math.pow(speed.getZ(), 2));
-
-	   double angleNS = Math.acos(speed.getZ() / netV);
-	   double angleEW = Math.acos(speed.getX() / netV);
-
-	   netV = netV > 0 ? netV + b : netV - b;
-
-	   double newX = Math.cos(angleEW) * netV;
-	   double newZ = Math.cos(angleNS) * netV;
-
-	   return speed.add(newX, 0.0F, newZ);
-
     }
 }
