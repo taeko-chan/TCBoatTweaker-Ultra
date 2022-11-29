@@ -1,6 +1,5 @@
 package ch.taeko.TCBoatTweakerUltra;
 
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
 public class Utilities {
@@ -16,12 +15,12 @@ public class Utilities {
 	   return 20.71 * v;
     }
 
-    public static double vectorTo1D(Vec3d vector) {
+    public static double linV(Vec3d vector) {
 	   return Math.sqrt(Math.pow(vector.x, 2) + Math.pow(vector.z, 2));
     }
 
     public static double getYawRotation(Vec3d speed) {
-	   double x = vectorTo1D(speed);
+	   double x = linV(speed);
 	   return -0.1 * x + 6;
     }
 
