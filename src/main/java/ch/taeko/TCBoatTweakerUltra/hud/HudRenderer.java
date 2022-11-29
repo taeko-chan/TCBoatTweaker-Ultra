@@ -1,5 +1,6 @@
 package ch.taeko.TCBoatTweakerUltra.hud;
 
+import ch.taeko.TCBoatTweakerUltra.Utilities;
 import ch.taeko.TCBoatTweakerUltra.client.TCBoatTweakerClient;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
@@ -17,9 +18,11 @@ public class HudRenderer
     private int scaledHeight;
 
     // The index to be used in these scales is the bar type (stored internally as an integer, defined in Config)
+    private static final double MIN_TQ = 0d;
+    private static final double MAX_TQ = 245d;
     private static final double MIN_V = 0d;
     private static final double MAX_V = 70.83d; // 255 kmh
-    private static final double SCALE_V = 4.5d; // Pixels for 1 unit of speed (px*s/m) (BarWidth / (VMax - VMin))
+    private static final double SCALE_V = 1d; // Pixels for 1 unit of speed (px*s/m) (BarWidth / (VMax - VMin))
     // V coordinates for each bar type in the texture file
     //                                    Pk Mix Blu
     private static final int BAR_OFF = 10;
@@ -49,10 +52,10 @@ public class HudRenderer
 
 	   this.drawTexture(stack, i - 91, this.scaledHeight - 83, 0, 50, 182, 20);
 	   this.renderBar(stack, i - 91, this.scaledHeight - 83);
-		  // Speed and drift angle
-	   this.typeCentered(stack, String.format("%03.0f km/h", this.displayedSpeed * 3.6d), i - 58, this.scaledHeight - 76, 0xFFFFFF);
-	   this.typeCentered(stack, String.valueOf(TCBoatTweakerClient.hudData.rpm) + " RPM", i, this.scaledHeight - 76, 0xFFFFFF);
-	   this.typeCentered(stack, String.valueOf((int) TCBoatTweakerClient.hudData.torque) + " NM", i + 58, this.scaledHeight - 76, 0xFFFFFF);
+
+	   this.typeCentered(stack, String.format("%03.0f km/h", this.displayedSpeed * 3.6d), i - 58, this.scaledHeight - 76, (this.displayedSpeed * 3.6 > 125) ? 0xd11313 : 0xFFFFFF);
+	   this.typeCentered(stack, Utilities.engineRunning ? "ON" : "OFF", i, this.scaledHeight - 76, Utilities.engineRunning ? 0x269142 : 0xd11313);
+	   this.typeCentered(stack, String.valueOf((int) TCBoatTweakerClient.hudData.torque) + " Nm", i + 58, this.scaledHeight - 76, 0xFFFFFF);
 
 	   RenderSystem.disableBlend();
     }
@@ -60,13 +63,13 @@ public class HudRenderer
     /** Renders the speed bar atop the HUD, uses displayedSpeed to, well, display the speed. */
     private void renderBar(MatrixStack stack, int x, int y) {
 	   this.drawTexture(stack, x, y, 0, BAR_OFF, 182, 5);
-	   if(TCBoatTweakerClient.hudData.speed < MIN_V) return;
-	   if(TCBoatTweakerClient.hudData.speed > MAX_V) {
+	   if(TCBoatTweakerClient.hudData.torque < MIN_TQ) return;
+	   if(TCBoatTweakerClient.hudData.torque > MAX_TQ) {
 		  if(this.client.world.getTime() % 2 == 0) return;
 		  this.drawTexture(stack, x, y, 0, BAR_ON, 182, 5);
 		  return;
 	   }
-	   this.drawTexture(stack, x, y, 0, BAR_ON, (int)((this.displayedSpeed - MIN_V) * SCALE_V), 5);
+	   this.drawTexture(stack, x, y, 0, BAR_ON, (int)((TCBoatTweakerClient.hudData.torque - MIN_TQ) * SCALE_V), 5);
     }
 
     /** Implementation is cloned from the notchian ping display in the tab player list.	 */

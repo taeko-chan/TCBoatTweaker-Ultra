@@ -11,6 +11,8 @@ public class Utilities {
     public static Gears currentGear = Gears.FORWARD;
     public static double currentGearNumber = 1;
 
+    public static boolean engineRunning = false;
+
     public static double toSi(double v) {
 	   return 20 * v;
     }

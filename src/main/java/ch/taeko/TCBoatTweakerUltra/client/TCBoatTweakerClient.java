@@ -43,8 +43,8 @@ public class TCBoatTweakerClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (gearChange.wasPressed()) {
-                Utilities.currentGearNumber *= -1;
-                client.player.sendMessage(Text.literal("Gear " + Utilities.currentGearNumber + " selected"), false);
+                Utilities.engineRunning ^= true;
+                client.player.sendMessage(Text.literal("Engine Toggled"), false);
             }
         });
     }
