@@ -3,6 +3,7 @@ package ch.taeko.TCBoatTweakerUltra.client;
 import ch.taeko.TCBoatTweakerUltra.Utilities;
 import ch.taeko.TCBoatTweakerUltra.hud.HudData;
 import ch.taeko.TCBoatTweakerUltra.hud.HudRenderer;
+import ch.taeko.TCBoatTweakerUltra.mixin.BoatMixin;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -35,16 +36,29 @@ public class TCBoatTweakerClient implements ClientModInitializer {
             }
         });
 
-        KeyBinding gearChange = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        KeyBinding engineToggle = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "tcboats.switchgear",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_E,
                 "ch.taeko.tcboats"));
 
+        KeyBinding cruiseControl = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "tcboats.cruisecontrol",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_C,
+                "ch.taeko.tcboats"));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (gearChange.wasPressed()) {
+            while (engineToggle.wasPressed()) {
                 Utilities.engineRunning ^= true;
                 client.player.sendMessage(Text.literal("Engine Toggled"), false);
+            }
+        });
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (cruiseControl.wasPressed()) {
+                Utilities.cruiseControl ^= true;
+                client.player.sendMessage(Text.literal("Cruise Control Toggled"), false);
             }
         });
     }

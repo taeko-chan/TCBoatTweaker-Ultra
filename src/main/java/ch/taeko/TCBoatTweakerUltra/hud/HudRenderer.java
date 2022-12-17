@@ -50,12 +50,15 @@ public class HudRenderer
 	   // but gives the impression that it's being updated faster than 20 hz (which it isn't)
 	   this.displayedSpeed = MathHelper.lerp(tickDelta, this.displayedSpeed, TCBoatTweakerClient.hudData.speed);
 
-	   this.drawTexture(stack, i - 91, this.scaledHeight - 83, 0, 50, 182, 20);
+	   this.drawTexture(stack, i - 91, this.scaledHeight - 83, 0, 70, 182, 33);
 	   this.renderBar(stack, i - 91, this.scaledHeight - 83);
 
 	   this.typeCentered(stack, String.format("%03.0f km/h", this.displayedSpeed * 3.6d), i - 58, this.scaledHeight - 76, (this.displayedSpeed * 3.6 > 125) ? 0xd11313 : 0xFFFFFF);
 	   this.typeCentered(stack, Utilities.engineRunning ? "ON" : "OFF", i, this.scaledHeight - 76, Utilities.engineRunning ? 0x269142 : 0xd11313);
 	   this.typeCentered(stack, String.valueOf((int) TCBoatTweakerClient.hudData.torque) + " Nm", i + 58, this.scaledHeight - 76, 0xFFFFFF);
+
+	   this.typeCentered(stack, "Cruise Ctrl: " + (Utilities.cruiseControl ? (Utilities.cruiseControlSpeed == null ? "SETTING..." : "ON") : "OFF"), i, this.scaledHeight - 66, 0xFFFFFF);
+
 
 	   RenderSystem.disableBlend();
     }
@@ -63,13 +66,13 @@ public class HudRenderer
     /** Renders the speed bar atop the HUD, uses displayedSpeed to, well, display the speed. */
     private void renderBar(MatrixStack stack, int x, int y) {
 	   this.drawTexture(stack, x, y, 0, BAR_OFF, 182, 5);
-	   if(TCBoatTweakerClient.hudData.torque < MIN_TQ) return;
-	   if(TCBoatTweakerClient.hudData.torque > MAX_TQ) {
+	   if(this.displayedSpeed < MIN_V) return;
+	   if(this.displayedSpeed > MAX_V) {
 		  if(this.client.world.getTime() % 2 == 0) return;
 		  this.drawTexture(stack, x, y, 0, BAR_ON, 182, 5);
 		  return;
 	   }
-	   this.drawTexture(stack, x, y, 0, BAR_ON, (int)((TCBoatTweakerClient.hudData.torque - MIN_TQ) * SCALE_V), 5);
+	   this.drawTexture(stack, x, y, 0, BAR_ON, (int)((this.displayedSpeed - MIN_V) * SCALE_V), 5);
     }
 
     /** Implementation is cloned from the notchian ping display in the tab player list.	 */

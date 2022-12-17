@@ -1,10 +1,9 @@
 package ch.taeko.TCBoatTweakerUltra.mixin;
 
-import ch.taeko.TCBoatTweakerUltra.Engine.BoatMechanics;
 import ch.taeko.TCBoatTweakerUltra.Utilities;
 import ch.taeko.TCBoatTweakerUltra.client.TCBoatTweakerClient;
 import ch.taeko.TCBoatTweakerUltra.hud.HudData;
-import net.fabricmc.loader.impl.lib.sat4j.core.Vec;
+import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.vehicle.BoatEntity;
@@ -18,25 +17,20 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 
+import static ch.taeko.TCBoatTweakerUltra.Utilities.cruiseControlSpeed;
+
 @Mixin(BoatEntity.class)
 public abstract class BoatMixin extends Entity {
 
     @Shadow
     @Nullable
     public abstract Entity getPrimaryPassenger();
-
     @Shadow private boolean pressingLeft;
-
     @Shadow private boolean pressingRight;
-
     @Shadow private boolean pressingForward;
-
     @Shadow private boolean pressingBack;
-
     @Shadow private float yawVelocity;
-
     @Shadow public abstract Direction getMovementDirection();
-
     boolean colliding = false;
     Vec3d cachedSpeed = Vec3d.ZERO;
     Vec3d cachedExhaustSpeed = Vec3d.ZERO;
@@ -55,10 +49,12 @@ public abstract class BoatMixin extends Entity {
     float cd = 0.25F;
     // float muR = 13 * 10E-5F;
     float muBrake = 0.08F;
-    float g = 9.81F;
+    float g = -9.81F;
+    float u = 10F;
     float gearRatio = 3.45F;
     int ticks = 0;
-    double power = 0;
+    float accelerator = 0F;
+    float maxTorque = 245F;
 
     /**
      * @author
@@ -67,7 +63,7 @@ public abstract class BoatMixin extends Entity {
     @Overwrite
     private void updatePaddles() {
 
-        float torque = 0;
+        float torque;
         float dragRes = 0F;
 
         // get a linear version of the vector velocity
@@ -103,16 +99,17 @@ public abstract class BoatMixin extends Entity {
             }
 
             if (this.pressingForward && Utilities.engineRunning) {
-                power += 0.05;
-                if (power > 1) power = 1;
-            } else {
-                power -= 0.1;
-                if (power < 0) power = 0;
+                if (Utilities.cruiseControl) Utilities.cruiseControl = false;
+                accelerator += 0.05;
+                if (accelerator > 1) accelerator = 1;
+            } else if (!Utilities.cruiseControl) {
+                accelerator -= 0.1;
+                if (accelerator < 0) accelerator = 0;
             }
-            torque = (float) (power * 245);
 
             // brake
             if (this.pressingBack) {
+                if (Utilities.cruiseControl) Utilities.cruiseControl = false;
                 braking = true;
             }
 
@@ -125,11 +122,21 @@ public abstract class BoatMixin extends Entity {
         Vec3d currentV = Utilities.toSiV(this.getVelocity());
         // VVV  | now in si units |  VVV
 
+        float airDrag = cd * (1.24F * (float) Math.pow(Utilities.linV(currentV),2) * refArea);
+
+        if (Utilities.cruiseControl) {
+            if (cruiseControlSpeed == null) {
+                cruiseControlSpeed = linV;
+            }
+            accelerator = airDrag / (gearRatio * maxTorque);
+        }
+
+        torque = accelerator * maxTorque;
+
         // mass calculation
         float mass = 1370 + (this.getPassengerList().size() * 60);
 
         // air resistance in tick
-        float airDrag = cd * (1.24F * (float) Math.pow(Utilities.linV(currentV),2) * refArea);
         dragRes += airDrag;
 
         // rolling resistance in tick, simplfied for now
@@ -148,6 +155,7 @@ public abstract class BoatMixin extends Entity {
 
         // engine force & acceleration
         float engineAccel = (torque * gearRatio)/mass; // nm * 1/m -> F -> F/m = a
+        System.out.println(engineAccel + ", " + dragAccel);
 
         float Ares = engineAccel - dragAccel;
         if (Ares < 0 && brakingIsStopped) {
@@ -155,18 +163,15 @@ public abstract class BoatMixin extends Entity {
             this.setVelocity(Vec3d.ZERO);
         }
 
-        // upward acceleration
-        double u = 0;
         // if boat can climb, begin climb
         if (this.horizontalCollision && !colliding) {
             this.colliding = true;
             g = 0;
-            u = 2D;
         }
         // stop climb and restore previous velocity
         if (!this.horizontalCollision && colliding) {
             this.colliding = false;
-            g = 9.81F;
+            g = -9.81F;
             this.setVelocity(cachedSpeed);
         }
         // cache velocity for next tick
@@ -179,7 +184,7 @@ public abstract class BoatMixin extends Entity {
         if (this.hasPassengers()) {
             this.setVelocity(this.getVelocity().add(
                     MathHelper.sin((float) Math.toRadians(-this.getYaw())) * deltaA,
-                    -Utilities.toMc(g) + u,
+                    Utilities.toMc(g) + (this.colliding ? Utilities.toMc(u) : 0),
                     MathHelper.cos((float) Math.toRadians(this.getYaw())) * deltaA
             ));
         }
@@ -187,81 +192,12 @@ public abstract class BoatMixin extends Entity {
         if (Utilities.linV(cachedExhaustSpeed) != 0 && Utilities.engineRunning)
             world.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, this.getX(), this.getY(), this.getZ(), -cachedExhaustSpeed.getX() * 1.3, 0.05F, -cachedExhaustSpeed.getZ() * 1.3);
 
+        if (world.getBlockState(this.getBlockPos()).isOf(Blocks.SNOW)) world.removeBlock(this.getBlockPos(), false);
+
         if (TCBoatTweakerClient.hudData != null) {
             TCBoatTweakerClient.hudData.setTorque(torque);
             TCBoatTweakerClient.hudData.setRpm(0);
         }
 
-
-
-/*
-
-        if (this.hasPassengers()) {
-
-            // acceleration force
-            float f = 0.0F;
-
-            // yaw cache
-            float x = this.getYaw();
-
-            // get a linear version of the vector velocity
-            double linV = Utilities.linV(this.getVelocity());
-
-            // different steering acceleration values depending on speed
-            if (this.pressingLeft && !isStopped) this.yawVelocity -= linV < 0.75 ? 0.75 : 1/linV * 0.8;
-
-            // different steering acceleration values depending on speed
-            if (this.pressingRight && !isStopped) this.yawVelocity += linV < 0.75 ? 0.75 : 1/linV * 0.8;
-
-            // turn vehicle
-            this.setYaw(this.getYaw() + this.yawVelocity);
-            this.setVelocity(this.getVelocity().rotateY((float) Math.toRadians(x - this.getYaw())));
-
-            // accelerate forward
-            if (this.pressingForward) {
-                if (this.getNearbySlipperiness() > 0.9) f += 0.023F;
-                else f += 0.02F;
-            }
-
-            // brake
-            if (this.pressingBack) {
-                if (isStopped) {
-                    f = 0F;
-                    this.setVelocity(Vec3d.ZERO);
-                } else {
-                    this.setVelocity(currentV.x * 0.87, currentV.y + e, currentV.z * 0.87);
-                }
-            }
-
-            // stop from spinning in place
-            if (isStopped) this.yawVelocity = 0.0F;
-
-            // upward acceleration
-            double u = 0;
-
-            // if boat can climb, begin climb
-            if (this.horizontalCollision && !colliding) {
-                this.colliding = true;
-                u = 1D;
-            }
-
-            // stop climb and restore previous velocity
-            if (!this.horizontalCollision && colliding) {
-                this.colliding = false;
-                this.setVelocity(cachedSpeed);
-            }
-
-            // cache velocity for next tick
-            if (!horizontalCollision) cachedSpeed = this.getVelocity();
-
-            f *= Utilities.currentGearNumber;
-
-            // update velocity
-            this.setVelocity(this.getVelocity().add(
-                    MathHelper.sin((float) Math.toRadians(-this.getYaw())) * f,
-                    u,
-                    MathHelper.cos((float) Math.toRadians(this.getYaw())) * f
-            ));
-        }*/
     }
 }

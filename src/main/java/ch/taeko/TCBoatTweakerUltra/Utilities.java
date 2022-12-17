@@ -12,6 +12,8 @@ public class Utilities {
     public static double currentGearNumber = 1;
 
     public static boolean engineRunning = false;
+    public static boolean cruiseControl = false;
+    public static Double cruiseControlSpeed = null;
 
     public static double toSi(double v) {
 	   return 20 * v;
@@ -21,9 +23,6 @@ public class Utilities {
     }
     public static double toMc(double v) {
 	   return v / 20;
-    }
-    public static float getTorqueAtRpm(float rpm) {
-	   return (float) (-(210/Math.pow(3500, 4)) * Math.pow(rpm-3500, 4) + 210);
     }
 
     public static Vec3d toMcV(Vec3d v) {
