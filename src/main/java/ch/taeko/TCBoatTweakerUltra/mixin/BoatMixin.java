@@ -1,13 +1,16 @@
 package ch.taeko.TCBoatTweakerUltra.mixin;
 
+import ch.taeko.TCBoatTweakerUltra.TCBoatTweaker;
 import ch.taeko.TCBoatTweakerUltra.Utilities;
-import ch.taeko.TCBoatTweakerUltra.client.TCBoatTweakerClient;
-import ch.taeko.TCBoatTweakerUltra.hud.HudData;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.vehicle.BoatEntity;
-import net.minecraft.particle.ParticleTypes;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -17,187 +20,320 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 
-import static ch.taeko.TCBoatTweakerUltra.Utilities.cruiseControlSpeed;
-
 @Mixin(BoatEntity.class)
 public abstract class BoatMixin extends Entity {
 
     @Shadow
     @Nullable
     public abstract Entity getPrimaryPassenger();
-    @Shadow private boolean pressingLeft;
-    @Shadow private boolean pressingRight;
-    @Shadow private boolean pressingForward;
-    @Shadow private boolean pressingBack;
-    @Shadow private float yawVelocity;
-    @Shadow public abstract Direction getMovementDirection();
+
+    @Shadow
+    private boolean pressingLeft;
+    @Shadow
+    private boolean pressingRight;
+    @Shadow
+    private boolean pressingForward;
+    @Shadow
+    private boolean pressingBack;
+    @Shadow
+    private float yawVelocity;
+
+    @Shadow
+    public abstract Direction getMovementDirection();
+
+    @Shadow
+    public float velocityDecay;
+    @Shadow
+    public BoatEntity.Location lastLocation;
+    @Shadow
+    public BoatEntity.Location location;
+    @Shadow
+    private double waterLevel;
+
+    @Shadow
+    public abstract float getWaterHeightBelow();
+
+    @Shadow
+    private float nearbySlipperiness;
+    @Shadow
+    private double fallVelocity;
+
+
+    @Shadow
+    public abstract void animateDamage();
+
     boolean colliding = false;
     Vec3d cachedSpeed = Vec3d.ZERO;
-    Vec3d cachedExhaustSpeed = Vec3d.ZERO;
+    float cachedY = 0F;
+    float cachedYaw = 0F;
 
-    public BoatMixin(EntityType<?> type, World world) {
-        super(type, world);
-    }
-
-    /**
-     * @author taeko_chan
-     * @reason lol
-     */
-    @Overwrite
-    private void updateVelocity() {} // method is empty.
     float refArea = 0.5625F * 1.375F;
     float cd = 0.25F;
     // float muR = 13 * 10E-5F;
     float muBrake = 0.08F;
     float g = -9.81F;
-    float u = 10F;
+    float u = 30F;
     float gearRatio = 3.45F;
     int ticks = 0;
     float accelerator = 0F;
     float maxTorque = 245F;
 
+    public BoatMixin(EntityType<?> type, World world) {
+	   super(type, world);
+    }
+
     /**
-     * @author
-     * @reason
-     */
+	* @author
+	* @reason
+	*/
+    @Overwrite
+    public static boolean canCollide(Entity entity, Entity other) {
+	   return false;
+    }
+
+    /**
+	* @author taeko_chan
+	* @reason lol
+	*/
+    @Overwrite
+    private void updateVelocity() {
+
+	   BlockState nearbySurface = world.getBlockState(this.getBlockPos().down());
+	   boolean drivingOnRoad =
+			 nearbySurface.isOf(Blocks.CYAN_TERRACOTTA) ||
+				    nearbySurface.isOf(Blocks.PACKED_ICE) ||
+				    nearbySurface.isOf(Blocks.BLUE_ICE) ||
+				    nearbySurface.isOf(Blocks.STONE);
+
+	   if (!Utilities.engineRunning) {
+		  double d = -0.03999999910593033D;
+		  double e = this.hasNoGravity() ? 0.0D : -0.4905;
+		  double f = 0.0D;
+		  this.velocityDecay = 0.05F;
+		  if (this.lastLocation == BoatEntity.Location.IN_AIR && this.location != BoatEntity.Location.IN_AIR && this.location != BoatEntity.Location.ON_LAND) {
+			 this.waterLevel = this.getBodyY(1.0D);
+			 this.setPosition(this.getX(), (double) (this.getWaterHeightBelow() - this.getHeight()) + 0.101D, this.getZ());
+			 this.setVelocity(this.getVelocity().multiply(1.0D, 0.0D, 1.0D));
+			 this.fallVelocity = 0.0D;
+			 this.location = BoatEntity.Location.IN_WATER;
+		  } else {
+			 if (this.location == BoatEntity.Location.IN_WATER) {
+				f = (this.waterLevel - this.getY()) / (double) this.getHeight();
+				this.velocityDecay = 0.9F;
+			 } else if (this.location == BoatEntity.Location.UNDER_FLOWING_WATER) {
+				e = -7.0E-4D;
+				this.velocityDecay = 0.9F;
+			 } else if (this.location == BoatEntity.Location.UNDER_WATER) {
+				f = 0.009999999776482582D;
+				this.velocityDecay = 0.45F;
+			 } else if (this.location == BoatEntity.Location.IN_AIR) {
+				this.velocityDecay = 1F;
+			 } else if (this.location == BoatEntity.Location.ON_LAND) {
+				if (drivingOnRoad) {
+				    this.velocityDecay = 0.98F;
+				} else {
+				    this.velocityDecay = 0.88F;
+				}
+				if (this.getPrimaryPassenger() instanceof PlayerEntity) {
+				    this.nearbySlipperiness /= 2.0F;
+				}
+			 }
+
+			 Vec3d vec3d = this.getVelocity();
+			 this.setVelocity(vec3d.x * (double) this.velocityDecay, vec3d.y + e, vec3d.z * (double) this.velocityDecay);
+			 this.yawVelocity *= this.velocityDecay;
+			 if (f > 0.0D) {
+				Vec3d vec3d2 = this.getVelocity();
+				this.setVelocity(vec3d2.x, (vec3d2.y + f * 0.06153846016296973D) * 0.75D, vec3d2.z);
+			 }
+		  }
+	   }
+    }
+
+    /**
+	* @author
+	* @reason
+	*/
     @Overwrite
     private void updatePaddles() {
 
-        float torque;
-        float dragRes = 0F;
+	   if (Utilities.engineRunning) {
 
-        // get a linear version of the vector velocity
-        double linV = Utilities.linV(this.getVelocity());
-        double linVMS = Utilities.toSi(linV);
+		  BlockState nearbySurface = world.getBlockState(this.getBlockPos().down());
+		  boolean drivingOnRoad =
+				nearbySurface.isOf(Blocks.CYAN_TERRACOTTA) ||
+					   nearbySurface.isOf(Blocks.PACKED_ICE) ||
+					   nearbySurface.isOf(Blocks.BLUE_ICE) ||
+					   nearbySurface.isOf(Blocks.STONE);
 
-        if (linV != 0) cachedExhaustSpeed = this.getVelocity();
+		  Vec3d currentV = this.getVelocity();
+		  double e = -0.4905;
 
-        this.yawVelocity *= 0.85;
-        boolean brakingIsStopped = (linVMS < 1);
-        boolean isStopped = (this.getVelocity().getX() < 0.01 && this.getVelocity().getX() > -0.01) && (this.getVelocity().getZ() < 0.01 && this.getVelocity().getZ() > -0.01);
-        boolean braking = false;
+		  // drag
+		  double d;
+		  if (drivingOnRoad) {
+			 d = 0.98F;
+		  } else {
+			 d = 0.88F;
+		  }
+		  this.setVelocity(currentV.x * d, currentV.y + e, currentV.z * d);
+		  yawVelocity *= 0.85;
 
-        if (this.hasPassengers()) {
+		  boolean isStopped = (this.getVelocity().getX() < 0.01 && this.getVelocity().getX() > -0.01) && (this.getVelocity().getZ() < 0.01 && this.getVelocity().getZ() > -0.01);
 
-            float x = this.getYaw();
+		  if (this.hasPassengers()) {
 
-            // different steering acceleration values depending on speed
-            if (this.pressingLeft && !isStopped) this.yawVelocity -= linV < 0.6 ? 0.6 : 1/linV * 0.5;
+			 // acceleration force
+			 float f = 0.0F;
 
-            // different steering acceleration values depending on speed
-            if (this.pressingRight && !isStopped) this.yawVelocity += linV < 0.6 ? 0.6 : 1/linV * 0.5;
+			 // yaw cache
+			 float x = this.getYaw();
 
-            // rotate vehicle
-            this.setYaw(this.getYaw() + this.yawVelocity);
-            this.setVelocity(this.getVelocity().rotateY((float) Math.toRadians(x - this.getYaw())));
+			 // get a linear version of the vector velocity
+			 double linV = this.getVelocity().length();
 
-            double missalignment = HudData.driftAngle;
-            if (missalignment > 1) {
-                this.setVelocity(this.getVelocity().rotateY(
-                        -((float) Math.toRadians(missalignment))
-                ));
-            }
+			 // different steering acceleration values depending on speed
+			 if (this.pressingLeft && !isStopped) this.yawVelocity -= linV < 1 ? 1 : 1 / linV * 0.8;
 
-            if (this.pressingForward && Utilities.engineRunning) {
-                if (Utilities.cruiseControl) Utilities.cruiseControl = false;
-                accelerator += 0.05;
-                if (accelerator > 1) accelerator = 1;
-            } else if (!Utilities.cruiseControl) {
-                accelerator -= 0.1;
-                if (accelerator < 0) accelerator = 0;
-            }
+			 // different steering acceleration values depending on speed
+			 if (this.pressingRight && !isStopped) this.yawVelocity += linV < 1 ? 1 : 1 / linV * 0.8;
 
-            // brake
-            if (this.pressingBack) {
-                if (Utilities.cruiseControl) Utilities.cruiseControl = false;
-                braking = true;
-            }
+			 // turn vehicle
+			 this.setYaw(this.getYaw() + this.yawVelocity);
+			 this.setVelocity(this.getVelocity().rotateY((float) Math.toRadians(x - this.getYaw())));
 
+			 // accelerate forward
+			 if (this.pressingForward) {
+				f += 0.06F;
+			 }
 
-        }
+			 // brake
+			 if (this.pressingBack) {
+				Vec3d vec3d = this.getVelocity();
+				double len = vec3d.length();
+				Vec3d unit = vec3d.multiply(1 / len);
+				double brakedLen = len - 0.1;
+				this.setVelocity(unit.multiply(brakedLen));
+			 }
 
-        // speed unit meters per tick ~ 1 m/tk = 20 m/s
-        // use m/s for everything and convert at the end bcs otherwise it's annoying
+			 if (isStopped) this.yawVelocity = 0.0F;
 
-        Vec3d currentV = Utilities.toSiV(this.getVelocity());
-        // VVV  | now in si units |  VVV
+			 double u = 0;
 
-        float airDrag = cd * (1.24F * (float) Math.pow(Utilities.linV(currentV),2) * refArea);
+			 if (this.horizontalCollision) {
+				this.setVelocity(this.getVelocity().add(0F, 0.8F, 0F));
+				if (!colliding) colliding = true;
+			 } else {
+				if (colliding) {
+				    if (this.getY() >= cachedY + 0.5) {
+					   this.setVelocity(cachedSpeed.multiply(0.75).rotateY((float) Math.toRadians(cachedYaw - this.getYaw())));
+					   colliding = false;
+				    }
+				}
+				cachedSpeed = this.getVelocity();
+				cachedY = (float) this.getY();
+				cachedYaw = this.getYaw();
+			 }
 
-        if (Utilities.cruiseControl) {
-            if (cruiseControlSpeed == null) {
-                cruiseControlSpeed = linV;
-            }
-            accelerator = airDrag / (gearRatio * maxTorque);
-        }
+			 f *= Utilities.currentGearNumber;
 
-        torque = accelerator * maxTorque;
+			 this.setVelocity(this.getVelocity().add(
+				    MathHelper.sin((float) Math.toRadians(-this.getYaw())) * f,
+				    u,
+				    MathHelper.cos((float) Math.toRadians(this.getYaw())) * f
+			 ));
+		  }
+	   } else {
 
-        // mass calculation
-        float mass = 1370 + (this.getPassengerList().size() * 60);
+		  if (this.hasPassengers()) {
+			 float f = 0.0F;
+			 if (this.pressingLeft) {
+				--this.yawVelocity;
+			 }
 
-        // air resistance in tick
-        dragRes += airDrag;
+			 if (this.pressingRight) {
+				++this.yawVelocity;
+			 }
 
-        // rolling resistance in tick, simplfied for now
-        float rollingRes; // µR * mass * g * (float) Utilities.linV(currentV);
-        rollingRes = 0;
-        dragRes += rollingRes;
+			 if (this.pressingRight != this.pressingLeft && !this.pressingForward && !this.pressingBack) {
+				f += 0.005F;
+			 }
 
-        if (braking) dragRes += muBrake * mass * g;
+			 this.setYaw(this.getYaw() + this.yawVelocity);
 
-        // resulting counteractive forces
-        float dragAccel = dragRes/mass;
+			 if (this.pressingForward) {
+				f += 0.06F;
+			 }
 
-        /*
-        * For now, I am omitting engine resistance.
-        */
+			 if (this.pressingBack) {
+				//f -= 0.02F;
 
-        // engine force & acceleration
-        float engineAccel = (torque * gearRatio)/mass; // nm * 1/m -> F -> F/m = a
-        System.out.println(engineAccel + ", " + dragAccel);
+				Vec3d vec3d = this.getVelocity();
+				double len = vec3d.length();
+				Vec3d unit = vec3d.multiply(1 / len);
+				double brakedLen = len - 0.1;
+				this.setVelocity(unit.multiply(brakedLen));
+				this.yawVelocity *= 0.85;
+			 }
 
-        float Ares = engineAccel - dragAccel;
-        if (Ares < 0 && brakingIsStopped) {
-            Ares = 0;
-            this.setVelocity(Vec3d.ZERO);
-        }
+			 if (this.getVelocity().length() >= 2.98611111) f = 0;
+			 this.setVelocity(this.getVelocity().add((double) (MathHelper.sin(-this.getYaw() * 0.017453292F) * f), 0.0D, (double) (MathHelper.cos(this.getYaw() * 0.017453292F) * f)));
 
-        // if boat can climb, begin climb
-        if (this.horizontalCollision && !colliding) {
-            this.colliding = true;
-            g = 0;
-        }
-        // stop climb and restore previous velocity
-        if (!this.horizontalCollision && colliding) {
-            this.colliding = false;
-            g = -9.81F;
-            this.setVelocity(cachedSpeed);
-        }
-        // cache velocity for next tick
-        if (!horizontalCollision) cachedSpeed = this.getVelocity();
+			 if (this.horizontalCollision) {
+				this.setVelocity(this.getVelocity().add(0F, 0.8F, 0F));
+				if (!colliding) colliding = true;
+			 } else {
+				if (colliding) {
+				    if (this.getY() >= cachedY + 0.5) {
+					   this.setVelocity(cachedSpeed.multiply(0.75).rotateY((float) Math.toRadians(cachedYaw - this.getYaw())));
+					   colliding = false;
+				    }
+				}
+				cachedSpeed = this.getVelocity();
+				cachedY = (float) this.getY();
+				cachedYaw = this.getYaw();
+			 }
 
-        // VVV | back to MC | VVV
+			 if (world.isRaining() && this.getVelocity() != Vec3d.ZERO && this.onGround) {
+				PacketByteBuf buf = PacketByteBufs.create();
+				buf.writeLongArray(
+					   new long[]{Math.round(this.getX() * 100),
+							 Math.round(this.getY() * 100),
+							 Math.round(this.getZ() * 100)}
+				);
+				ClientPlayNetworking.send(TCBoatTweaker.RAINING, buf);
+			 }
 
-        float deltaA = (float) Utilities.toMc(Ares);
+			 if (world.getBlockState(this.getBlockPos()).isOf(Blocks.SNOW)) {
+				PacketByteBuf buf = PacketByteBufs.create();
+				buf.writeBlockPos(this.getBlockPos());
+				ClientPlayNetworking.send(TCBoatTweaker.UPDATE_SNOW, buf);
+			 }
 
-        if (this.hasPassengers()) {
-            this.setVelocity(this.getVelocity().add(
-                    MathHelper.sin((float) Math.toRadians(-this.getYaw())) * deltaA,
-                    Utilities.toMc(g) + (this.colliding ? Utilities.toMc(u) : 0),
-                    MathHelper.cos((float) Math.toRadians(this.getYaw())) * deltaA
-            ));
-        }
+			 if (world.getBlockState(this.getBlockPos().north()).isOf(Blocks.SNOW)) {
+				PacketByteBuf buf = PacketByteBufs.create();
+				buf.writeBlockPos(this.getBlockPos().north());
+				ClientPlayNetworking.send(TCBoatTweaker.UPDATE_SNOW, buf);
+			 }
 
-        if (Utilities.linV(cachedExhaustSpeed) != 0 && Utilities.engineRunning)
-            world.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, this.getX(), this.getY(), this.getZ(), -cachedExhaustSpeed.getX() * 1.3, 0.05F, -cachedExhaustSpeed.getZ() * 1.3);
+			 if (world.getBlockState(this.getBlockPos().south()).isOf(Blocks.SNOW)) {
+				PacketByteBuf buf = PacketByteBufs.create();
+				buf.writeBlockPos(this.getBlockPos().south());
+				ClientPlayNetworking.send(TCBoatTweaker.UPDATE_SNOW, buf);
+			 }
 
-        if (world.getBlockState(this.getBlockPos()).isOf(Blocks.SNOW)) world.removeBlock(this.getBlockPos(), false);
+			 if (world.getBlockState(this.getBlockPos().east()).isOf(Blocks.SNOW)) {
+				PacketByteBuf buf = PacketByteBufs.create();
+				buf.writeBlockPos(this.getBlockPos().east());
+				ClientPlayNetworking.send(TCBoatTweaker.UPDATE_SNOW, buf);
+			 }
 
-        if (TCBoatTweakerClient.hudData != null) {
-            TCBoatTweakerClient.hudData.setTorque(torque);
-            TCBoatTweakerClient.hudData.setRpm(0);
-        }
-
+			 if (world.getBlockState(this.getBlockPos().west()).isOf(Blocks.SNOW)) {
+				PacketByteBuf buf = PacketByteBufs.create();
+				buf.writeBlockPos(this.getBlockPos().west());
+				ClientPlayNetworking.send(TCBoatTweaker.UPDATE_SNOW, buf);
+			 }
+		  }
+	   }
     }
 }
