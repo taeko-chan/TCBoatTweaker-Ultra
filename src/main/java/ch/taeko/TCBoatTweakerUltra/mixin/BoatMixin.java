@@ -114,6 +114,7 @@ public abstract class BoatMixin extends Entity {
 				    nearbySurface.isOf(Blocks.PACKED_ICE) ||
 				    nearbySurface.isOf(Blocks.BLUE_ICE) ||
 				    nearbySurface.isOf(Blocks.STONE);
+	   drivingOnRoad = true; // for benamy
 
 	   if (!Utilities.engineRunning) {
 		  double d = -0.03999999910593033D;
@@ -278,14 +279,14 @@ public abstract class BoatMixin extends Entity {
 			 }
 
 			 if (this.pressingBack) {
-				//f -= 0.02F;
-
+				f -= 0.02F;
+/*
 				Vec3d vec3d = this.getVelocity();
 				double len = vec3d.length();
 				Vec3d unit = vec3d.multiply(1 / len);
 				double brakedLen = len - 0.1;
 				this.setVelocity(unit.multiply(brakedLen));
-				this.yawVelocity *= 0.85;
+				this.yawVelocity *= 0.85;*/
 			 }
 
 			 if (this.getVelocity().length() >= 2.98611111) f = 0;

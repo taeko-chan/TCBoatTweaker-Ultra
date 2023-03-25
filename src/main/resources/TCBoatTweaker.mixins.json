@@ -4,9 +4,9 @@
   "package": "ch.taeko.TCBoatTweakerUltra.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "BoatMixin"
   ],
   "client": [
-    "BoatMixin",
     "InGameHudMixin",
     "ClientPlayNetworkHandlerMixin"
   ],
