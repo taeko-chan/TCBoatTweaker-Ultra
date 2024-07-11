@@ -2,7 +2,7 @@ package ch.taeko.TCBoatTweakerUltra.client;
 
 import ch.taeko.TCBoatTweakerUltra.Utilities;
 import ch.taeko.TCBoatTweakerUltra.hud.HudData;
-import ch.taeko.TCBoatTweakerUltra.hud.HudRenderer;
+// import ch.taeko.TCBoatTweakerUltra.hud.HudRenderer;
 import ch.taeko.TCBoatTweakerUltra.mixin.BoatMixin;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -20,12 +20,12 @@ public class TCBoatTweakerClient implements ClientModInitializer {
     public static MinecraftClient client = null;
     public static boolean ridingBoat = false;
     public static HudData hudData;
-    public static HudRenderer hudRenderer;
+    //public static HudRenderer hudRenderer;
 
     public void onInitializeClient() {
 
         client = MinecraftClient.getInstance();
-        hudRenderer = new HudRenderer(client);
+        //hudRenderer = new HudRenderer(client);
 
         ClientTickEvents.END_WORLD_TICK.register(clientWorld -> {
             if(client.player == null) return;

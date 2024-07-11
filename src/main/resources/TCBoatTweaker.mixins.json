@@ -7,7 +7,6 @@
     "BoatMixin"
   ],
   "client": [
-    "InGameHudMixin",
     "ClientPlayNetworkHandlerMixin"
   ],
   "injectors": {

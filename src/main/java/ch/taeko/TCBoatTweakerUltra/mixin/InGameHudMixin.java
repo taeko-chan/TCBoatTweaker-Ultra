@@ -1,6 +1,7 @@
 package ch.taeko.TCBoatTweakerUltra.mixin;
 
 import ch.taeko.TCBoatTweakerUltra.client.TCBoatTweakerClient;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.util.math.MatrixStack;
@@ -15,9 +16,9 @@ public class InGameHudMixin {
 		  method = "render",
 		  at = @At("TAIL")
     )
-    public void render(MatrixStack stack, float tickDelta, CallbackInfo info) {
+    public void render(DrawContext context, float tickDelta, CallbackInfo info) {
 	   if(TCBoatTweakerClient.ridingBoat && !(TCBoatTweakerClient.client.currentScreen instanceof ChatScreen)) {
-		  TCBoatTweakerClient.hudRenderer.render(stack, tickDelta);
+		 // TCBoatTweakerClient.hudRenderer.render(context, tickDelta);
 	   }
     }
 }

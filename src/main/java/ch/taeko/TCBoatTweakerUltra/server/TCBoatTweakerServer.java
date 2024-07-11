@@ -15,11 +15,11 @@ public class TCBoatTweakerServer implements DedicatedServerModInitializer {
         });
         ServerPlayNetworking.registerGlobalReceiver(TCBoatTweaker.RAINING, (server, player, handler, buf, responseSender) -> {
             long[] target = buf.readLongArray();
-            server.execute(() -> player.getWorld().spawnParticles(ParticleTypes.FALLING_WATER, (double) (target[0]) / 100, (double) (target[1]) / 100, (double) (target[2]) / 100, 15,0D,0D, 0D, 0D));
+            // server.execute(() -> player.getWorld().addParticle(ParticleTypes.FALLING_WATER, (double) (target[0]) / 100, (double) (target[1]) / 100, (double) (target[2]) / 100, 15,0D,0D, 0D, 0D));
         });
         ServerPlayNetworking.registerGlobalReceiver(TCBoatTweaker.DRIFTING, (server, player, handler, buf, responseSender) -> {
             long[] target = buf.readLongArray();
-            server.execute(() -> player.getWorld().spawnParticles(ParticleTypes.POOF, (double) (target[0]) / 100, (double) (target[1]) / 100, (double) (target[2]) / 100, 15,0D,0D, 0D, 0D));
+            // server.execute(() -> player.getWorld().addParticle(ParticleTypes.POOF, (double) (target[0]) / 100, (double) (target[1]) / 100, (double) (target[2]) / 100, 15,0D,0D, 0D, 0D));
         });
     }
 }

@@ -25,11 +25,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(BoatEntity.class)
 public abstract class BoatMixin extends Entity {
-
-    @Shadow
-    @Nullable
-    public abstract Entity getPrimaryPassenger();
-
     @Shadow
     private boolean pressingLeft;
     @Shadow
@@ -62,25 +57,6 @@ public abstract class BoatMixin extends Entity {
     private double fallVelocity;
 
 
-    @Shadow
-    public abstract void animateDamage();
-
-    boolean colliding = false;
-    Vec3d cachedSpeed = Vec3d.ZERO;
-    float cachedY = 0F;
-    float cachedYaw = 0F;
-
-    float refArea = 0.5625F * 1.375F;
-    float cd = 0.25F;
-    // float muR = 13 * 10E-5F;
-    float muBrake = 0.08F;
-    float g = -9.81F;
-    float u = 30F;
-    float gearRatio = 3.45F;
-    int ticks = 0;
-    float accelerator = 0F;
-    float maxTorque = 245F;
-
     public BoatMixin(EntityType<?> type, World world) {
 	   super(type, world);
     }
@@ -96,7 +72,7 @@ public abstract class BoatMixin extends Entity {
 
     @Inject(method = "tick", at = @At("HEAD"))
     public void setStepHeight(CallbackInfo ci) {
-	   this.stepHeight = 1F;
+	   this.setStepHeight(1F);
     }
 
     /**
@@ -106,15 +82,12 @@ public abstract class BoatMixin extends Entity {
     @Overwrite
     private void updateVelocity() {
 
-
-
-	   BlockState nearbySurface = world.getBlockState(this.getBlockPos().down());
+	   BlockState nearbySurface = this.getWorld().getBlockState(this.getBlockPos().down());
 	   boolean drivingOnRoad =
 			 nearbySurface.isOf(Blocks.CYAN_TERRACOTTA) ||
 				    nearbySurface.isOf(Blocks.PACKED_ICE) ||
 				    nearbySurface.isOf(Blocks.BLUE_ICE) ||
 				    nearbySurface.isOf(Blocks.STONE);
-	   drivingOnRoad = true; // for benamy
 
 	   if (!Utilities.engineRunning) {
 		  double d = -0.03999999910593033D;
@@ -145,7 +118,7 @@ public abstract class BoatMixin extends Entity {
 				} else {
 				    this.velocityDecay = 0.88F;
 				}
-				if (this.getPrimaryPassenger() instanceof PlayerEntity) {
+				if (this.getFirstPassenger() instanceof PlayerEntity) {
 				    this.nearbySlipperiness /= 2.0F;
 				}
 			 }
@@ -170,22 +143,26 @@ public abstract class BoatMixin extends Entity {
 
 	   if (Utilities.engineRunning) {
 
-		  BlockState nearbySurface = world.getBlockState(this.getBlockPos().down());
+		  BlockState nearbySurface = this.getWorld().getBlockState(this.getBlockPos().down());
 		  boolean drivingOnRoad =
 				nearbySurface.isOf(Blocks.CYAN_TERRACOTTA) ||
 					   nearbySurface.isOf(Blocks.PACKED_ICE) ||
 					   nearbySurface.isOf(Blocks.BLUE_ICE) ||
-					   nearbySurface.isOf(Blocks.STONE);
+					   nearbySurface.isOf(Blocks.STONE) ||
+					   nearbySurface.isOf(Blocks.AIR) ||
+					   nearbySurface.isOf(Blocks.END_ROD);
 
 		  Vec3d currentV = this.getVelocity();
 		  double e = -0.4905;
+
+		  if (!Utilities.cruiseControl) Utilities.cruiseControlSpeed = this.getVelocity().length();
 
 		  // drag
 		  double d;
 		  if (drivingOnRoad) {
 			 d = 0.998F;
 		  } else {
-			 d = 0.88F;
+			 d = 0.9F;
 		  }
 		  this.setVelocity(currentV.x * d, currentV.y + e, currentV.z * d);
 		  yawVelocity *= 0.85;
@@ -216,7 +193,7 @@ public abstract class BoatMixin extends Entity {
 
 			 // accelerate forward
 			 if (this.pressingForward) {
-				f += 0.03F;
+				f += 0.02F;
 			 }
 
 			 // brake
@@ -224,7 +201,7 @@ public abstract class BoatMixin extends Entity {
 				Vec3d vec3d = this.getVelocity();
 				double len = vec3d.length();
 				Vec3d unit = vec3d.multiply(1 / len);
-				double brakedLen = len - 0.05;
+				double brakedLen = len - 0.1;
 				this.setVelocity(unit.multiply(brakedLen));
 			 }
 
@@ -232,30 +209,18 @@ public abstract class BoatMixin extends Entity {
 
 			 double u = 0;
 
-			 /*if (this.horizontalCollision) {
-				this.setVelocity(this.getVelocity().add(0F, 0.8F, 0F));
-				if (!colliding) colliding = true;
-			 } else {
-				if (colliding) {
-				    if (this.getY() >= cachedY + 0.5) {
-					   this.setVelocity(cachedSpeed.multiply(0.75).rotateY((float) Math.toRadians(cachedYaw - this.getYaw())));
-					   colliding = false;
-				    }
-				}
-				cachedSpeed = this.getVelocity();
-				cachedY = (float) this.getY();
-				cachedYaw = this.getYaw();
-			 }*/
-
 			 f *= Utilities.currentGearNumber;
-			 if (this.getVelocity().length() >= 2.98611111) f = 0;
+			 if (this.getVelocity().length() >= 3.47) f = 0; // 250 km/h
 
 			 this.setVelocity(this.getVelocity().add(
 				    MathHelper.sin((float) Math.toRadians(-this.getYaw())) * f,
 				    u,
 				    MathHelper.cos((float) Math.toRadians(this.getYaw())) * f
 			 ));
+
+
 		  }
+
 	   } else {
 
 		  if (this.hasPassengers()) {
@@ -279,37 +244,20 @@ public abstract class BoatMixin extends Entity {
 			 }
 
 			 if (this.pressingBack) {
-				f -= 0.02F;
-/*
 				Vec3d vec3d = this.getVelocity();
 				double len = vec3d.length();
 				Vec3d unit = vec3d.multiply(1 / len);
-				double brakedLen = len - 0.1;
+				double brakedLen = len - 0.08;
 				this.setVelocity(unit.multiply(brakedLen));
-				this.yawVelocity *= 0.85;*/
 			 }
 
-			 if (this.getVelocity().length() >= 2.98611111) f = 0;
+			 if (this.getVelocity().length() >= 3.47) f = 0;
 			 this.setVelocity(this.getVelocity().add((double) (MathHelper.sin(-this.getYaw() * 0.017453292F) * f), 0.0D, (double) (MathHelper.cos(this.getYaw() * 0.017453292F) * f)));
 
-			 /*if (this.horizontalCollision) {
-				this.setVelocity(this.getVelocity().add(0F, 0.8F, 0F));
-				if (!colliding) colliding = true;
-			 } else {
-				if (colliding) {
-				    if (this.getY() >= cachedY + 0.5) {
-					   this.setVelocity(cachedSpeed.multiply(0.75).rotateY((float) Math.toRadians(cachedYaw - this.getYaw())));
-					   colliding = false;
-				    }
-				}
-				cachedSpeed = this.getVelocity();
-				cachedY = (float) this.getY();
-				cachedYaw = this.getYaw();
-			 }*/
 		  }
 	   }
 
-	   if (world.isRaining() && this.getVelocity() != Vec3d.ZERO && this.onGround) {
+	   if (this.getWorld().isRaining() && this.getVelocity() != Vec3d.ZERO && this.isOnGround()) {
 		  PacketByteBuf buf = PacketByteBufs.create();
 		  buf.writeLongArray(
 				new long[]{Math.round(this.getX() * 100),
@@ -319,31 +267,31 @@ public abstract class BoatMixin extends Entity {
 		  ClientPlayNetworking.send(TCBoatTweaker.RAINING, buf);
 	   }
 
-	   if (world.getBlockState(this.getBlockPos()).isOf(Blocks.SNOW)) {
+	   if (this.getWorld().getBlockState(this.getBlockPos()).isOf(Blocks.SNOW)) {
 		  PacketByteBuf buf = PacketByteBufs.create();
 		  buf.writeBlockPos(this.getBlockPos());
 		  ClientPlayNetworking.send(TCBoatTweaker.UPDATE_SNOW, buf);
 	   }
 
-	   if (world.getBlockState(this.getBlockPos().north()).isOf(Blocks.SNOW)) {
+	   if (this.getWorld().getBlockState(this.getBlockPos().north()).isOf(Blocks.SNOW)) {
 		  PacketByteBuf buf = PacketByteBufs.create();
 		  buf.writeBlockPos(this.getBlockPos().north());
 		  ClientPlayNetworking.send(TCBoatTweaker.UPDATE_SNOW, buf);
 	   }
 
-	   if (world.getBlockState(this.getBlockPos().south()).isOf(Blocks.SNOW)) {
+	   if (this.getWorld().getBlockState(this.getBlockPos().south()).isOf(Blocks.SNOW)) {
 		  PacketByteBuf buf = PacketByteBufs.create();
 		  buf.writeBlockPos(this.getBlockPos().south());
 		  ClientPlayNetworking.send(TCBoatTweaker.UPDATE_SNOW, buf);
 	   }
 
-	   if (world.getBlockState(this.getBlockPos().east()).isOf(Blocks.SNOW)) {
+	   if (this.getWorld().getBlockState(this.getBlockPos().east()).isOf(Blocks.SNOW)) {
 		  PacketByteBuf buf = PacketByteBufs.create();
 		  buf.writeBlockPos(this.getBlockPos().east());
 		  ClientPlayNetworking.send(TCBoatTweaker.UPDATE_SNOW, buf);
 	   }
 
-	   if (world.getBlockState(this.getBlockPos().west()).isOf(Blocks.SNOW)) {
+	   if (this.getWorld().getBlockState(this.getBlockPos().west()).isOf(Blocks.SNOW)) {
 		  PacketByteBuf buf = PacketByteBufs.create();
 		  buf.writeBlockPos(this.getBlockPos().west());
 		  ClientPlayNetworking.send(TCBoatTweaker.UPDATE_SNOW, buf);

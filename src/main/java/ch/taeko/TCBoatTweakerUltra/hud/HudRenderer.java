@@ -1,16 +1,17 @@
+/*
 package ch.taeko.TCBoatTweakerUltra.hud;
 
 import ch.taeko.TCBoatTweakerUltra.Utilities;
 import ch.taeko.TCBoatTweakerUltra.client.TCBoatTweakerClient;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawableHelper;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 
 public class HudRenderer
-	   extends DrawableHelper {
+	   extends DrawContext {
 
     private static final Identifier WIDGETS_TEXTURE = new Identifier("tcboattweaker","textures/widgets.png");
     private final MinecraftClient client;
@@ -32,10 +33,10 @@ public class HudRenderer
     private double displayedSpeed = 0.0d;
 
     public HudRenderer(MinecraftClient client) {
-	   this.client = client;
+	   super(client, null);
     }
 
-    public void render(MatrixStack stack, float tickDelta) {
+    public void render(DrawContext context, float tickDelta) {
 	   this.scaledWidth = this.client.getWindow().getScaledWidth();
 	   this.scaledHeight = this.client.getWindow().getScaledHeight();
 	   int i = this.scaledWidth / 2;
@@ -50,8 +51,8 @@ public class HudRenderer
 	   // but gives the impression that it's being updated faster than 20 hz (which it isn't)
 	   this.displayedSpeed = MathHelper.lerp(tickDelta, this.displayedSpeed, TCBoatTweakerClient.hudData.speed);
 
-	   this.drawTexture(stack, i - 91, this.scaledHeight - 83, 0, 70, 182, 33);
-	   this.renderBar(stack, i - 91, this.scaledHeight - 83);
+	   this.drawTexture(context, i - 91, this.scaledHeight - 83, 0, 70, 182, 33);
+	   this.renderBar(context, i - 91, this.scaledHeight - 83);
 
 	   this.typeCentered(stack, String.format("%03.0f km/h", this.displayedSpeed * 3.6d), i - 58, this.scaledHeight - 76, (this.displayedSpeed * 3.6 > 125) ? 0xd11313 : 0xFFFFFF);
 	   this.typeCentered(stack, Utilities.engineRunning ? "ON" : "OFF", i, this.scaledHeight - 76, Utilities.engineRunning ? 0x269142 : 0xd11313);
@@ -64,7 +65,7 @@ public class HudRenderer
     }
 
     /** Renders the speed bar atop the HUD, uses displayedSpeed to, well, display the speed. */
-    private void renderBar(MatrixStack stack, int x, int y) {
+  /**  private void renderBar(MatrixStack stack, int x, int y) {
 	   this.drawTexture(stack, x, y, 0, BAR_OFF, 182, 5);
 	   if(this.displayedSpeed < MIN_V) return;
 	   if(this.displayedSpeed > MAX_V) {
@@ -73,12 +74,12 @@ public class HudRenderer
 		  return;
 	   }
 	   this.drawTexture(stack, x, y, 0, BAR_ON, (int)((this.displayedSpeed - MIN_V) * SCALE_V), 5);
-    }
+    }*/
 
     /** Implementation is cloned from the notchian ping display in the tab player list.	 */
 
     /** Renders a piece of text centered horizontally on an X coordinate. */
-    private void typeCentered(MatrixStack stack, String text, int centerX, int y, int color) {
-	   this.client.textRenderer.drawWithShadow(stack, text, centerX - this.client.textRenderer.getWidth(text) / 2, y, color);
+   /** private void typeCentered(MatrixStack stack, String text, int centerX, int y, int color) {
+	   this.drawTextWithShadow(text, centerX - this.client.textRenderer.getWidth(text) / 2, y, color);
     }
-}
+}*/
